@@ -6,6 +6,15 @@ function _getCleanSubtitles() {
   throw new Error('cleanSubtitles not available');
 }
 
+function sanitizeFilename(name) {
+  if (!name) return 'file';
+  return name
+    .replace(/:\s*/g, ' - ')             // Replace colons with clean hyphen: "Title: Subtitle" -> "Title - Subtitle"
+    .replace(/[\/?*<>|"\\]/g, '_')        // Replace forbidden filesystem characters with underscore
+    .replace(/\s+/g, ' ')                // Collapse whitespace
+    .trim();
+}
+
 function classifyZipEntry(filename) {
   if (!filename) return null;
   var match = filename.match(/\.([a-zA-Z0-9]+)$/i);
@@ -17,7 +26,9 @@ function classifyZipEntry(filename) {
 }
 
 function buildRelativePath(modulePrefix, filename) {
-  return 'notebookLM/' + modulePrefix + '_' + filename;
+  var safePrefix = sanitizeFilename(modulePrefix || 'Module');
+  var safeFilename = sanitizeFilename(filename);
+  return 'notebookLM/' + safePrefix + '_' + safeFilename;
 }
 
 async function processAssets(assets, modulePrefix, fetchFn) {
@@ -39,6 +50,7 @@ async function processAssets(assets, modulePrefix, fetchFn) {
           var text = await zipEntry.async('string');
           var cleaned = _getCleanSubtitles()(text);
           var newName = entryName.replace(/\.[a-zA-Z0-9]+$/i, '.txt');
+          newName = sanitizeFilename(newName);
           processedFiles.push({
             filename: newName,
             relativePath: buildRelativePath(modulePrefix, newName),
@@ -47,9 +59,10 @@ async function processAssets(assets, modulePrefix, fetchFn) {
           });
         } else if (classification === 'document') {
           var content = await zipEntry.async('arraybuffer');
+          var safeName = sanitizeFilename(entryName);
           processedFiles.push({
-            filename: entryName,
-            relativePath: buildRelativePath(modulePrefix, entryName),
+            filename: safeName,
+            relativePath: buildRelativePath(modulePrefix, safeName),
             content: content,
             mimeType: 'application/octet-stream'
           });
@@ -62,6 +75,7 @@ async function processAssets(assets, modulePrefix, fetchFn) {
       var newName = asset.title || 'transcript.txt';
       newName = newName.replace(/\.[a-zA-Z0-9]+$/i, '.txt');
       if (!newName.endsWith('.txt')) newName += '.txt';
+      newName = sanitizeFilename(newName);
       
       processedFiles.push({
         filename: newName,
@@ -72,6 +86,7 @@ async function processAssets(assets, modulePrefix, fetchFn) {
     } else if (asset.category === 'document') {
       var buffer = await fetchFn(asset.url);
       var filename = asset.title || 'document.pdf';
+      filename = sanitizeFilename(filename);
       processedFiles.push({
         filename: filename,
         relativePath: buildRelativePath(modulePrefix, filename),
@@ -85,9 +100,19 @@ async function processAssets(assets, modulePrefix, fetchFn) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { processAssets: processAssets, buildRelativePath: buildRelativePath, classifyZipEntry: classifyZipEntry };
+  module.exports = {
+    processAssets: processAssets,
+    buildRelativePath: buildRelativePath,
+    classifyZipEntry: classifyZipEntry,
+    sanitizeFilename: sanitizeFilename
+  };
 }
 if (typeof self !== 'undefined') {
-  self._pipeline = { processAssets: processAssets, buildRelativePath: buildRelativePath, classifyZipEntry: classifyZipEntry };
+  self._pipeline = {
+    processAssets: processAssets,
+    buildRelativePath: buildRelativePath,
+    classifyZipEntry: classifyZipEntry,
+    sanitizeFilename: sanitizeFilename
+  };
 }
 })();

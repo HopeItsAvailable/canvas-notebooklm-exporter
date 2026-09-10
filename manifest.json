@@ -20,14 +20,5 @@
   "background": {
     "service_worker": "background.js",
     "type": "classic"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "lib/jszip.min.js",
-        "src/*"
-      ],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }

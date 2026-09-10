@@ -16,6 +16,10 @@ test('categorizeByExtension', (t) => {
   assert.strictEqual(categorizeByExtension('doc.docx?download=1'), 'document');
   assert.strictEqual(categorizeByExtension('unknown.exe'), null);
   assert.strictEqual(categorizeByExtension('noextension'), null);
+  // Edge cases with size badges and word markers
+  assert.strictEqual(categorizeByExtension('lecture.vtt (14.2 KB)'), 'transcript');
+  assert.strictEqual(categorizeByExtension('Module 4 Video 1.vtt\n(50 KB)'), 'transcript');
+  assert.strictEqual(categorizeByExtension('Video Transcript (VTT)'), 'transcript');
 });
 
 test('resolveCanvasDownloadUrl', (t) => {
@@ -118,9 +122,7 @@ test('scanPageForAssets', (t) => {
 
   // Check the ZIP
   const zipAsset = assets.find(a => a.id === 'asset-2');
-  assert.strictEqual(zipAsset.title, 'Download Archive'); // It uses textContent if available, but wait, textContent does not have extension.
-  // Actually, our logic says if textContent has extension, use it for filename. It doesn't, so it checks title.
-  // Title has .zip, so category is archive.
+  assert.strictEqual(zipAsset.title, 'Download Archive');
   assert.strictEqual(zipAsset.url, 'https://canvas.edu/courses/1/files/101/download?download_frd=1');
   assert.strictEqual(zipAsset.category, 'archive');
   assert.strictEqual(zipAsset.originalExtension, 'zip');
@@ -131,4 +133,54 @@ test('scanPageForAssets', (t) => {
   assert.strictEqual(vttAsset.url, 'https://external.com/captions.vtt');
   assert.strictEqual(vttAsset.category, 'transcript');
   assert.strictEqual(vttAsset.originalExtension, 'vtt');
+});
+
+test('scanPageForAssets - Canvas VTT variations', (t) => {
+  const mockElements = {
+    'a[href]': [
+      {
+        href: '/courses/258697/files/132797807?wrap=1',
+        textContent: 'Lecture 4 Transcript.vtt (14.2 KB)',
+        title: '',
+        ariaLabel: ''
+      },
+      {
+        href: '/courses/258697/files/132797808?wrap=1',
+        textContent: 'Video 2 Captions (VTT)',
+        title: '',
+        ariaLabel: ''
+      }
+    ],
+    'track[src], track[data-src]': [
+      {
+        src: '/courses/258697/files/132797809/download',
+        label: 'English Captions'
+      }
+    ]
+  };
+
+  const mockDocument = {
+    querySelectorAll: (selector) => {
+      if (mockElements[selector]) {
+        return mockElements[selector].map(item => ({
+          getAttribute: (attr) => item[attr] || null,
+          textContent: item.textContent || ''
+        }));
+      }
+      return [];
+    }
+  };
+
+  const assets = scanPageForAssets(mockDocument, 'https://canvas.asu.edu');
+  assert.strictEqual(assets.length, 3, 'Should discover all 3 VTT transcripts');
+  assert.strictEqual(assets[0].category, 'transcript');
+  assert.strictEqual(assets[0].originalExtension, 'vtt');
+  assert.strictEqual(assets[0].title, 'Lecture 4 Transcript.vtt');
+
+  assert.strictEqual(assets[1].category, 'transcript');
+  assert.strictEqual(assets[1].originalExtension, 'vtt');
+
+  assert.strictEqual(assets[2].category, 'transcript');
+  assert.strictEqual(assets[2].originalExtension, 'vtt');
+  assert.strictEqual(assets[2].title, 'English Captions.vtt');
 });

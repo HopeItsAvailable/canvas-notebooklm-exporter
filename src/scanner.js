@@ -61,16 +61,33 @@ function resolveCanvasDownloadUrl(href, baseUrl) {
 }
 
 /**
- * Categorizes a file by its extension.
+ * Extracts extension from filename, text, or URL string.
+ * Supports dot extensions and word markers (e.g. "Transcript (VTT)").
+ * @param {string} str
+ * @returns {string | null}
+ */
+function extractExtension(str) {
+  if (!str) return null;
+  // Match standard file extension with a dot, e.g. .vtt, .srt, .zip, .pdf
+  const dotMatch = str.match(/\.(vtt|srt|txt|zip|pdf|pptx|docx|doc|ppt)\b/i);
+  if (dotMatch) return dotMatch[1].toLowerCase();
+
+  // Word match for transcript formats in titles/labels (e.g. "Transcript (VTT)", "[SRT]")
+  const wordMatch = str.match(/\b(vtt|srt)\b/i);
+  if (wordMatch) return wordMatch[1].toLowerCase();
+
+  return null;
+}
+
+/**
+ * Categorizes a file or string by its extension.
  * @param {string} filename 
  * @returns {'archive' | 'transcript' | 'document' | null}
  */
 function categorizeByExtension(filename) {
   if (!filename) return null;
-  const match = filename.match(/\.([a-zA-Z0-9]+)(?:[?#]|$)/);
-  if (!match) return null;
-  
-  const ext = match[1].toLowerCase();
+  const ext = extractExtension(filename);
+  if (!ext) return null;
   
   if (['zip'].includes(ext)) return 'archive';
   if (['vtt', 'srt', 'txt'].includes(ext)) return 'transcript';
@@ -80,50 +97,75 @@ function categorizeByExtension(filename) {
 }
 
 /**
- * Scans a DOM document for all download links, categorizes them, and returns an array of DiscoveredAsset objects.
+ * Scans a DOM document for all download links and subtitle tracks,
+ * categorizes them, and returns an array of DiscoveredAsset objects.
  * @param {Document} document 
  * @param {string} baseUrl 
  * @returns {Array<Object>}
  */
 function scanPageForAssets(document, baseUrl) {
-  const links = document.querySelectorAll('a[href]');
   const assets = [];
   let idCounter = 1;
 
+  // 1. Scan links: a[href]
+  const links = document.querySelectorAll('a[href]');
   links.forEach(link => {
     const href = link.getAttribute('href');
     if (!href) return;
     
     const textContent = (link.textContent || '').trim();
     const titleAttr = link.getAttribute('title') || '';
-    
-    // Determine the filename to check for extension
-    let filenameToCheck = '';
-    if (categorizeByExtension(textContent)) {
-      filenameToCheck = textContent;
-    } else if (categorizeByExtension(titleAttr)) {
-      filenameToCheck = titleAttr;
-    } else {
-      try {
-        filenameToCheck = new URL(href, baseUrl).pathname;
-      } catch (e) {
-        filenameToCheck = href;
+    const ariaLabel = link.getAttribute('aria-label') || '';
+    const downloadAttr = link.getAttribute('download') || '';
+    const apiEndpoint = link.getAttribute('data-api-endpoint') || '';
+
+    // Inspect candidates in priority order
+    const candidates = [textContent, titleAttr, ariaLabel, downloadAttr, apiEndpoint];
+    let detectedCategory = null;
+    let detectedExt = '';
+
+    for (const cand of candidates) {
+      if (!cand) continue;
+      const cat = categorizeByExtension(cand);
+      if (cat) {
+        detectedCategory = cat;
+        detectedExt = extractExtension(cand);
+        break;
       }
     }
-    
-    const category = categorizeByExtension(filenameToCheck);
-    if (category) {
-      const originalExtensionMatch = filenameToCheck.match(/\.([a-zA-Z0-9]+)(?:[?#]|$)/);
-      const originalExtension = originalExtensionMatch ? originalExtensionMatch[1].toLowerCase() : '';
-      
-      let title = textContent || titleAttr;
-      if (!title) {
-         try {
-             title = new URL(href, baseUrl).pathname.split('/').pop();
-         } catch(e) {
-             title = href;
-         }
+
+    // If text/attributes didn't have extension, check URL path and search params
+    if (!detectedCategory) {
+      try {
+        const urlObj = new URL(href, baseUrl);
+        const urlString = urlObj.pathname + urlObj.search;
+        const cat = categorizeByExtension(urlString);
+        if (cat) {
+          detectedCategory = cat;
+          detectedExt = extractExtension(urlString);
+        }
+      } catch (e) {
+        const cat = categorizeByExtension(href);
+        if (cat) {
+          detectedCategory = cat;
+          detectedExt = extractExtension(href);
+        }
       }
+    }
+
+    if (detectedCategory) {
+      let title = textContent || titleAttr || ariaLabel;
+      if (!title) {
+        try {
+          title = new URL(href, baseUrl).pathname.split('/').pop();
+        } catch(e) {
+          title = href;
+        }
+      }
+      // Clean up common Canvas badge clutter like " (123 KB)" or "(opens in a new tab)"
+      title = title.replace(/\s*\(\d+(\.\d+)?\s*(KB|MB|B|GB)\)/i, '')
+                   .replace(/\s*\((opens|this link) in [^)]*\)/i, '')
+                   .trim();
 
       const resolvedUrl = resolveCanvasDownloadUrl(href, baseUrl);
       
@@ -134,10 +176,32 @@ function scanPageForAssets(document, baseUrl) {
           id: 'asset-' + (idCounter++),
           title: title,
           url: resolvedUrl,
-          category: category,
-          originalExtension: originalExtension
+          category: detectedCategory,
+          originalExtension: detectedExt
         });
       }
+    }
+  });
+
+  // 2. Scan HTML5 track elements: track[src]
+  const tracks = document.querySelectorAll('track[src], track[data-src]');
+  tracks.forEach(track => {
+    const src = track.getAttribute('src') || track.getAttribute('data-src');
+    if (!src) return;
+
+    const label = track.getAttribute('label') || track.getAttribute('title') || 'Transcript';
+    const title = label.toLowerCase().endsWith('.vtt') ? label : `${label}.vtt`;
+    const resolvedUrl = resolveCanvasDownloadUrl(src, baseUrl);
+
+    const isDuplicate = assets.some(a => a.url === resolvedUrl);
+    if (!isDuplicate) {
+      assets.push({
+        id: 'asset-' + (idCounter++),
+        title: title,
+        url: resolvedUrl,
+        category: 'transcript',
+        originalExtension: 'vtt'
+      });
     }
   });
 
@@ -147,6 +211,7 @@ function scanPageForAssets(document, baseUrl) {
 module.exports = {
   extractModulePrefix,
   resolveCanvasDownloadUrl,
+  extractExtension,
   categorizeByExtension,
   scanPageForAssets
 };

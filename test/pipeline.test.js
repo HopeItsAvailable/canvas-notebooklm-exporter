@@ -17,6 +17,15 @@ test('classifyZipEntry', (t) => {
 test('buildRelativePath', (t) => {
   assert.strictEqual(buildRelativePath('Module-1', 'file.txt'), 'notebookLM/Module-1_file.txt');
   assert.strictEqual(buildRelativePath('Unknown-Module', 'test.pdf'), 'notebookLM/Unknown-Module_test.pdf');
+  // Colons and illegal filesystem characters
+  assert.strictEqual(
+    buildRelativePath('Module-4', 'Hidden Markov Models: Formulation.txt'),
+    'notebookLM/Module-4_Hidden Markov Models - Formulation.txt'
+  );
+  assert.strictEqual(
+    buildRelativePath('Module 4: Overview', 'Learning & Interface?.txt'),
+    'notebookLM/Module 4 - Overview_Learning & Interface_.txt'
+  );
 });
 
 test('processAssets with archive, transcript, and document', async (t) => {
