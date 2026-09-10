@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Canvas NotebookLM Exporter</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      width: 380px;
+      background-color: #ffffff;
+      color: #333333;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 4px 0;
+      color: #0374B5;
+    }
+    .info-line {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button.secondary {
+      padding: 6px 12px;
+      background: #f1f3f4;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #333;
+    }
+    button.secondary:hover {
+      background: #e8eaed;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .section-header h2 {
+      font-size: 14px;
+      margin: 0;
+    }
+    .toggle-all {
+      font-size: 12px;
+      color: #0374B5;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .toggle-all:hover {
+      text-decoration: underline;
+    }
+    .asset-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .category-group {
+      margin-bottom: 8px;
+    }
+    .category-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+      text-transform: capitalize;
+      color: #555;
+    }
+    .asset-item {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 4px;
+    }
+    .asset-item input {
+      margin-top: 2px;
+      margin-right: 6px;
+    }
+    .asset-item label {
+      word-break: break-all;
+    }
+    button.primary {
+      width: 100%;
+      padding: 10px;
+      background: #0374B5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button.primary:hover {
+      background: #025f94;
+    }
+    button.primary:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+    #status-area {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #555;
+      min-height: 20px;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Canvas NotebookLM Exporter</h1>
+  <div class="info-line" id="course-info">Scanning page...</div>
+
+  <div class="form-group">
+    <label for="module-prefix">Module Prefix</label>
+    <div class="input-row">
+      <input type="text" id="module-prefix" placeholder="e.g. Module-1">
+      <button class="secondary" id="auto-detect-btn">Auto-detect</button>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <div class="section-header">
+      <h2>Found Assets</h2>
+      <a class="toggle-all" id="toggle-all-btn">Deselect All</a>
+    </div>
+    <div class="asset-list" id="asset-list">
+      <!-- Populated via JS -->
+    </div>
+  </div>
+
+  <button class="primary" id="export-btn" disabled>Export for NotebookLM</button>
+  <div id="status-area"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

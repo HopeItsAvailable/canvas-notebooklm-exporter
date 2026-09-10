@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Canvas NotebookLM Exporter",
+  "version": "1.0.0",
+  "description": "One-click export of Canvas course materials for NotebookLM",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://canvas.asu.edu/*",
+    "*://*.instructure.com/*",
+    "*://*.canvas-user-content.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "classic"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/jszip.min.js",
+        "src/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
